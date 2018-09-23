@@ -3,18 +3,24 @@ library(ggplot2)
 library(reshape2)
 library(Ecdat)
 
-set.seed(1)
-N = 1000
-k = 10
-x = matrix(rnorm(N*k),N,k)
-b = (-1)^(1:k)
-yaux=(x%*%b)^2
-e = rnorm(N)
-y=yaux+e
 
-# = select train and test indexes = #
-train=sample(1:N,800)
-test=setdiff(1:N,train)
+n = nrow(nn_mellkas)
+trainIndex = sample(1:n, size = round(0.7*n), replace=FALSE)
+train = nn_mellkas[trainIndex ,]
+test = nn_mellkas[-trainIndex ,]
+
+#remove NA-s
+train2<-train[!is.na(train$sex),]
+test2 <- test[!is.na(test$sex),]
+str(train2)
+dim(train2)
+dim(test2)
+
+
+# fakors and chars to numeri
+
+
+adat<- as.matrix(nn_mellkas)
 
 # = parameters = #
 # = eta candidates = #
@@ -29,28 +35,27 @@ ss=c(0.25,0.5,0.75,1)
 # = standard model is the second value  of each vector above = #
 standard=c(2,2,3,2)
 
-# = train and test data = #
-xtrain = x[train,]
-ytrain = y[train]
-xtest = x[test,]
-ytest = y[test]
+
+
+
 
 
 set.seed(1)
 conv_eta = matrix(NA,500,length(eta))
 pred_eta = matrix(NA,length(test), length(eta))
 colnames(conv_eta) = colnames(pred_eta) = eta
+
 for(i in 1:length(eta)){
   params=list(eta = eta[i], colsample_bylevel=cs[standard[2]],
               subsample = ss[standard[4]], max_depth = md[standard[3]],
               min_child_weigth = 1)
-  xgb=xgboost(xtrain, label = ytrain, nrounds = 500, params = params)
+  xgb=xgboost(data = as.matrix(train2[,-1]),label =train2$sex,  nrounds = 500, params = params)
   conv_eta[,i] = xgb$evaluation_log$train_rmse
-  pred_eta[,i] = predict(xgb, xtest)
+  pred_eta[,i] = predict(xgb,as.matrix(train2[,-1]))
 }
 
 conv_eta = data.frame(iter=1:500, conv_eta)
-conv_eta = melt(conv_eta, id.vars = "iter")
+conv_eta = melt(conv_eta, id.vars = "iterations")
 ggplot(data = conv_eta) + geom_line(aes(x = iter, y = value, color = variable))
 
 (RMSE_eta = sqrt(colMeans((ytest-pred_eta)^2)))
